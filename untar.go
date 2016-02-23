@@ -87,6 +87,8 @@ func untar(f io.Reader, dst string) error {
 			err = unix.Mkfifo(name, syscallMode(mode))
 		case tar.TypeChar, tar.TypeBlock:
 			err = unix.Mknod(name, syscallMode(mode), devNo(hdr.Devmajor, hdr.Devminor))
+		case tar.TypeXGlobalHeader, tar.TypeXHeader:
+			continue
 		default:
 			return fmt.Errorf("unsupported header type flag for %[2]q: %#[1]x (%[1]q)", hdr.Typeflag, hdr.Name)
 		}
