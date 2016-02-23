@@ -78,15 +78,7 @@ func untar(f io.Reader, dst string) error {
 		case tar.TypeReg, tar.TypeRegA:
 			err = writeFile(name, mode, tr)
 		case tar.TypeDir:
-			switch err := os.Mkdir(name, mode); {
-			case err == nil:
-			case os.IsExist(err):
-				if err := os.Chmod(name, mode); err != nil {
-					return err
-				}
-			default:
-				return err
-			}
+			err = os.MkdirAll(name, mode)
 		case tar.TypeLink:
 			err = os.Link(filepath.Join(dst, filepath.Clean(hdr.Linkname)), name)
 		case tar.TypeSymlink:
