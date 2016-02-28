@@ -1,65 +1,40 @@
-package main
+// Package untar provides helper function to easily extract contents of a tar
+// stream to a file system directory.
+//
+// Useful for cases where you'd want a replacement for external call to `tar x`.
+// It differs from `tar x` call by not setting proper times on symlinks itself.
+// Extended attributes are not supported.
+//
+// It's tested on OS X and Linux amd64 and is enough to unpack linux root
+// filesystem to a useable state.
+package untar
 
 import (
 	"archive/tar"
-	"compress/gzip"
-	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/sys/unix"
 )
 
-func main() {
-	dst := "."
-	flag.StringVar(&dst, "C", dst, "directory to unpack to")
-	flag.Parse()
-	if dst == "" {
-		dst = "."
-	}
-	if len(flag.Args()) != 1 {
-		flag.Usage()
-		os.Exit(1)
-	}
-	if err := openAndUntar(flag.Args()[0], dst); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func openAndUntar(name, dst string) error {
-	var rd io.Reader
-	f, err := os.Open(name)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	rd = f
-	if strings.HasSuffix(name, ".gz") || strings.HasSuffix(name, ".tgz") {
-		gr, err := gzip.NewReader(f)
-		if err != nil {
-			return err
-		}
-		defer gr.Close()
-		rd = gr
-	}
-	if err := os.MkdirAll(dst, os.ModeDir|os.ModePerm); err != nil {
-		return err
-	}
-	// resetting umask is essential to have exact permissions on unpacked
-	// files; it's not not put inside untar function as it changes
-	// process-wide umask
-	mask := unix.Umask(0)
-	defer unix.Umask(mask)
-	return untar(rd, dst)
-}
-
-func untar(f io.Reader, dst string) error {
+// Untar extracts each item from a tar stream and saves it into file system
+// directory. It stops on first error it encounters; if extracted over existing
+// file system tree, matching files would be overwritten. If destination
+// directory does not exist, it will be created.
+//
+// Note that permissions on unpacked data would be set with current umask taken
+// into account; if you expect to get exact permissions, call syscall.Umask(0)
+// beforehand. This function does not call it itself as this changes umask
+// process-wide, so it's safer to do this explicitly.
+//
+// Owner/group of extracted files are set only if run as root (os.Getuid() == 0)
+// and are only set as numeric values, user/group names are not taken into
+// account.
+func Untar(f io.Reader, dst string) error {
 	isRoot := os.Getuid() == 0
 	tr := tar.NewReader(f)
 	for {
@@ -181,5 +156,3 @@ var copyBufPool = sync.Pool{
 		return &b
 	},
 }
-
-func init() { log.SetFlags(0) }
