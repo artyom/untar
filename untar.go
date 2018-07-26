@@ -50,6 +50,13 @@ func Untar(f io.Reader, dst string) error {
 		mode := hdr.FileInfo().Mode()
 	ProcessHeader:
 		switch hdr.Typeflag {
+		case tar.TypeReg, tar.TypeRegA, tar.TypeLink, tar.TypeSymlink, tar.TypeFifo, tar.TypeChar, tar.TypeBlock:
+			// some arcihves may contain file entry in a directory
+			// without explicit directory entry before, ensure
+			// directory exists first on a best-effort approach
+			_ = os.MkdirAll(filepath.Dir(name), 0777)
+		}
+		switch hdr.Typeflag {
 		case tar.TypeReg, tar.TypeRegA:
 			err = writeFile(name, mode, tr)
 		case tar.TypeDir:
