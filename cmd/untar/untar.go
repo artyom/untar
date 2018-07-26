@@ -1,4 +1,4 @@
-package untar
+package main
 
 import (
 	"compress/bzip2"
